@@ -1,0 +1,101 @@
+# This file is managed by gitlab-ctl. Manual changes will be
+# erased! To change the contents below, edit /etc/gitlab/gitlab.rb
+# and run `sudo gitlab-ctl reconfigure`.
+
+## GitLab Mattermost
+
+upstream gitlab_mattermost {
+  server <%= @service_address %>:<%= @service_port %>;
+}
+
+<% if @https && @redirect_http_to_https %>
+server {
+<% @listen_addresses.each do |listen_address| %>
+  listen <%= listen_address %>:<%= @redirect_http_to_https_port %>;
+<% end %>
+
+  server_name <%= @fqdn %>;
+  server_tokens off;
+
+  <% if @letsencrypt_enable %>
+  location /.well-known {
+    root <%= @dir %>/www/;
+  }
+  <% end %>
+
+  location / {
+    return 301 https://<%= @fqdn %>:<%= @port %>$request_uri;
+  }
+
+  access_log  <%= @log_directory %>/gitlab_mattermost_access.log gitlab_mattermost_access;
+  error_log   <%= @log_directory %>/gitlab_mattermost_error.log;
+}
+<% end %>
+
+server {
+<% @listen_addresses.each do |listen_address| %>
+  listen <%= listen_address %>:<%= @listen_port %><% if @https %> ssl<% if @http2_enabled %> http2<% end %><% end %>;
+<% end %>
+  server_name <%= @fqdn %>;
+  server_tokens off;     # don't show the version number, a security best practice
+  client_max_body_size <%= @client_max_body_size %>;
+
+  <% if @https %>
+  ssl_certificate <%= @ssl_certificate %>;
+  ssl_certificate_key <%= @ssl_certificate_key %>;
+  <% if @ssl_client_certificate %>
+  ssl_client_certificate <%= @ssl_client_certificate%>;
+  <% end %>
+  <% if @ssl_verify_client %>
+  ssl_verify_client <%= @ssl_verify_client%>;
+  ssl_verify_depth <%= @ssl_verify_depth%>;
+  <% end %>
+
+  ssl_ciphers '<%= @ssl_ciphers %>';
+  ssl_prefer_server_ciphers <%= @ssl_prefer_server_ciphers %>;
+  ssl_protocols  <%= @ssl_protocols %>;
+  ssl_session_cache  <%= @ssl_session_cache %>;
+  ssl_session_timeout  <%= @ssl_session_timeout %>;
+  <% if @ssl_dhparam %>
+  ssl_dhparam <%= @ssl_dhparam %>;
+  <% end %>
+  <% end %>
+
+  ## Real IP Module Config
+  ## http://nginx.org/en/docs/http/ngx_http_realip_module.html
+  <% if @real_ip_header %>
+  real_ip_header <%= @real_ip_header %>;
+  <% end %>
+  <% if @real_ip_recursive %>
+  real_ip_recursive <%= @real_ip_recursive %>;
+  <% end %>
+  <% @real_ip_trusted_addresses.each do |trusted_address| %>
+  set_real_ip_from <%= trusted_address %>;
+  <% end %>
+
+  <% if @referrer_policy %>
+  add_header Referrer-Policy <%= @referrer_policy %>;
+  <% end %>
+
+  access_log  <%= @log_directory %>/gitlab_mattermost_access.log gitlab_mattermost_access;
+  error_log   <%= @log_directory %>/gitlab_mattermost_error.log;
+
+  location / {
+    ## If you use HTTPS make sure you disable gzip compression
+    ## to be safe against BREACH attack.
+    <%= 'gzip off;' if @https %>
+
+    proxy_read_timeout      <%= @proxy_read_timeout %>;
+    proxy_connect_timeout   <%= @proxy_connect_timeout %>;
+    proxy_redirect          off;
+
+    <% @proxy_set_headers.each do |header| %>
+    <% next if header[1].nil? %>
+    proxy_set_header <%= header[0] %> <%= header[1] %>;
+    <% end %>
+
+    proxy_pass http://gitlab_mattermost;
+  }
+
+  <%= @custom_gitlab_mattermost_server_config %>
+}

@@ -1,0 +1,48 @@
+diff --git a/Makefile b/Makefile
+index d20571fa64..004a557e6d 100644
+--- a/Makefile
++++ b/Makefile
+@@ -223,7 +223,7 @@ list-tests:
+ 	 $(PERL) $(SRCDIR)/test/run_tests.pl list
+ 	@ : 
+ 
+-install: install_sw install_ssldirs install_docs
++install: install_sw install_ssldirs
+ 
+ uninstall: uninstall_docs uninstall_sw
+ 
+@@ -271,8 +271,6 @@ install_sw: install_dev install_engines install_runtime
+ 
+ uninstall_sw: uninstall_runtime uninstall_engines uninstall_dev
+ 
+-install_docs: install_man_docs install_html_docs
+-
+ uninstall_docs: uninstall_man_docs uninstall_html_docs
+ 	$(RM) -r "$(DESTDIR)$(DOCDIR)"
+ 
+@@ -496,25 +494,12 @@ uninstall_runtime_libs:
+ 	@$(ECHO) "*** Uninstalling runtime libraries"
+ 	@ : 
+ 
+-
+-install_man_docs:
+-	@[ -n "$(INSTALLTOP)" ] || (echo INSTALLTOP should not be empty; exit 1)
+-	@$(ECHO) "*** Installing manpages"
+-	$(PERL) $(SRCDIR)/util/process_docs.pl \
+-		"--destdir=$(DESTDIR)$(MANDIR)" --type=man --suffix=$(MANSUFFIX)
+-
+ uninstall_man_docs:
+ 	@$(ECHO) "*** Uninstalling manpages"
+ 	$(PERL) $(SRCDIR)/util/process_docs.pl \
+ 		"--destdir=$(DESTDIR)$(MANDIR)" --type=man --suffix=$(MANSUFFIX) \
+ 		--remove
+ 
+-install_html_docs:
+-	@[ -n "$(INSTALLTOP)" ] || (echo INSTALLTOP should not be empty; exit 1)
+-	@$(ECHO) "*** Installing HTML manpages"
+-	$(PERL) $(SRCDIR)/util/process_docs.pl \
+-		"--destdir=$(DESTDIR)$(HTMLDIR)" --type=html
+-
+ uninstall_html_docs:
+ 	@$(ECHO) "*** Uninstalling manpages"
+ 	$(PERL) $(SRCDIR)/util/process_docs.pl \

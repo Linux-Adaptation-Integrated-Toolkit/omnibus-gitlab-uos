@@ -1,0 +1,26 @@
+#!/opt/gitlab/embedded/bin/ruby
+require 'find'
+
+gem_dir = `<%= install_dir %>/embedded/bin/gem environment gemdir`
+gems_directory = File.join(gem_dir.chomp, 'gems')
+compiled_licenses_file = "<%= license_file %>"
+
+license_path_list = []
+Find.find(gems_directory) do |path|
+  begin
+    next if File.directory?(path)
+    base_name = File.basename(path)
+    next if ['.rb', '.yml'].include? File.extname(base_name)
+
+    if base_name.downcase.include?('license') || base_name.downcase.include?('licence') || base_name.downcase.include?('copying')
+      license_path_list << path
+      full_path = path.dup
+      path.slice!(gems_directory)
+      license_text = File.read(full_path)
+      output = ">>> #{path} \n\n #{license_text} \n\n"
+      File.open(compiled_licenses_file, 'a') { |f| f.write(output)}
+    end
+  rescue
+    puts "Error with #{path}"
+  end
+end

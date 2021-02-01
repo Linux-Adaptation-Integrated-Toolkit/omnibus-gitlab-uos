@@ -1,0 +1,4 @@
+[databases]
+<% @databases.each do |db, settings| %>
+<%= db %> = <%= pgb_helper.database_config(db) %>
+<% end %>

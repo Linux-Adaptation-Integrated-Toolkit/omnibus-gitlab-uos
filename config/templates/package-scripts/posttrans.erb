@@ -1,0 +1,14 @@
+#!/bin/sh
+# GitLab post-transition script
+# RPM only
+DEST_DIR=<%= install_dir %>
+
+
+if [ -e /etc/gitlab/gitlab.rb ] ; then
+  EXTERNAL_URL=$(awk '/^external_url/ { print $2 }' /etc/gitlab/gitlab.rb | tr -d "'\"")
+fi
+
+<%= external_url_script %>
+
+${DEST_DIR}/embedded/bin/symlink_ctl_cmds ${DEST_DIR}
+EXTERNAL_URL=${EXTERNAL_URL} ${DEST_DIR}/bin/gitlab-ctl upgrade

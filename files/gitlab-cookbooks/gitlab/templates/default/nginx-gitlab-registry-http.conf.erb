@@ -1,0 +1,107 @@
+# This file is managed by gitlab-ctl. Manual changes will be
+# erased! To change the contents below, edit /etc/gitlab/gitlab.rb
+# and run `sudo gitlab-ctl reconfigure`.
+
+## Lines starting with two hashes (##) are comments with information.
+## Lines starting with one hash (#) are configuration parameters that can be uncommented.
+##
+###################################
+##         configuration         ##
+###################################
+
+<% if @https && @redirect_http_to_https %>
+## Redirects all HTTP traffic to the HTTPS host
+server {
+<% @listen_addresses.each do |listen_address| %>
+  listen <%= listen_address %>:<%= @redirect_http_to_https_port %>;
+<% end %>
+
+  server_name  <%= @fqdn %>;
+  server_tokens off; ## Don't show the nginx version number, a security best practice
+
+  <% if @letsencrypt_enable %>
+  location /.well-known {
+    root <%= @dir %>/www/;
+  }
+  <% end %>
+
+  location / {
+  <% if @port %>
+    return 301 https://<%= @fqdn %>:<%= @port %>$request_uri;
+  <% else %>
+    return 301 https://<%= @fqdn %>$request_uri;
+  <% end %>
+  }
+
+  access_log  <%= @log_directory %>/gitlab_registry_access.log gitlab_access;
+  error_log   <%= @log_directory %>/gitlab_registry_error.log;
+}
+<% end %>
+
+server {
+<% @listen_addresses.each do |listen_address| %>
+  listen <%= listen_address %>:<%= @listen_port %><% if @https %> ssl<% end %>;
+<% end %>
+  server_name <%= @fqdn %>;
+  server_tokens off; ## Don't show the nginx version number, a security best practice
+
+  client_max_body_size 0;
+  chunked_transfer_encoding on;
+
+  <% if @https %>
+  ## Strong SSL Security
+  ## https://raymii.org/s/tutorials/Strong_SSL_Security_On_nginx.html & https://cipherli.st/
+  ssl_certificate <%= @ssl_certificate %>;
+  ssl_certificate_key <%= @ssl_certificate_key %>;
+  <% if @ssl_client_certificate %>
+  ssl_client_certificate <%= @ssl_client_certificate%>;
+  <% end %>
+  <% if @ssl_verify_client %>
+  ssl_verify_client <%= @ssl_verify_client%>;
+  ssl_verify_depth <%= @ssl_verify_depth%>;
+  <% end %>
+
+  ssl_ciphers '<%= @ssl_ciphers %>';
+  ssl_protocols  <%= @ssl_protocols %>;
+  ssl_prefer_server_ciphers <%= @ssl_prefer_server_ciphers %>;
+  ssl_session_cache  <%= @ssl_session_cache %>;
+  ssl_session_timeout  <%= @ssl_session_timeout %>;
+
+  <% if @ssl_dhparam %>
+  ssl_dhparam <%= @ssl_dhparam %>;
+  <% end %>
+  <% end %>
+
+  ## Real IP Module Config
+  ## http://nginx.org/en/docs/http/ngx_http_realip_module.html
+  <% if @real_ip_header %>
+  real_ip_header <%= @real_ip_header %>;
+  <% end %>
+  <% if @real_ip_recursive %>
+  real_ip_recursive <%= @real_ip_recursive %>;
+  <% end %>
+  <% @real_ip_trusted_addresses.each do |trusted_address| %>
+  set_real_ip_from <%= trusted_address %>;
+  <% end %>
+
+  access_log  <%= @log_directory %>/gitlab_registry_access.log gitlab_access;
+  error_log   <%= @log_directory %>/gitlab_registry_error.log;
+
+  location / {
+
+    <% @proxy_set_headers.each do |header| %>
+    <% next if header[1].nil? %>
+    proxy_set_header <%= header[0] %> <%= header[1] %>;
+    <% end %>
+
+    proxy_read_timeout                  900;
+    proxy_cache off;
+    proxy_buffering off;
+    proxy_request_buffering off;
+    proxy_http_version 1.1;
+
+    proxy_pass          http://<%= @registry_http_addr %>;
+  }
+
+  <%= @custom_gitlab_server_config %>
+}

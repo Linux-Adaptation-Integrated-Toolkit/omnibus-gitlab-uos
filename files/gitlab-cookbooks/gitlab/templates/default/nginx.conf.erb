@@ -1,0 +1,108 @@
+# This file is managed by gitlab-ctl. Manual changes will be
+# erased! To change the contents below, edit /etc/gitlab/gitlab.rb
+# and run `sudo gitlab-ctl reconfigure`.
+
+user <%= node['gitlab']['web-server']['username'] %> <%= node['gitlab']['web-server']['group']%>;
+worker_processes <%= @worker_processes %>;
+error_log stderr;
+pid nginx.pid;
+
+daemon off;
+
+events {
+  worker_connections <%= @worker_connections %>;
+}
+
+http {
+  log_format gitlab_access '<%= @gitlab_access_log_format %>';
+  log_format gitlab_mattermost_access '<%= @gitlab_mattermost_access_log_format %>';
+
+  server_names_hash_bucket_size <%= @server_names_hash_bucket_size %>;
+
+  sendfile <%= @sendfile %>;
+  tcp_nopush <%= @tcp_nopush %>;
+  tcp_nodelay <%= @tcp_nodelay %>;
+
+  keepalive_timeout <%= @keepalive_timeout %>;
+
+  gzip <%= @gzip %>;
+  gzip_http_version <%= @gzip_http_version %>;
+  gzip_comp_level <%= @gzip_comp_level %>;
+  gzip_proxied <%= @gzip_proxied %>;
+  gzip_types <%= @gzip_types.join(' ') %>;
+
+  include /opt/gitlab/embedded/conf/mime.types;
+
+  proxy_cache_path <%= @proxy_cache_path %>;
+  proxy_cache <%= @proxy_cache %>;
+
+  map $http_upgrade $connection_upgrade {
+      default upgrade;
+      ''      close;
+  }
+
+  # Remove private_token from the request URI
+  # In:  /foo?private_token=unfiltered&authenticity_token=unfiltered&rss_token=unfiltered&...
+  # Out: /foo?private_token=[FILTERED]&authenticity_token=unfiltered&rss_token=unfiltered&...
+  map $request_uri $temp_request_uri_1 {
+    default $request_uri;
+    ~(?i)^(?<start>.*)(?<temp>[\?&]private[\-_]token)=[^&]*(?<rest>.*)$ "$start$temp=[FILTERED]$rest";
+  }
+
+  # Remove authenticity_token from the request URI
+  # In:  /foo?private_token=[FILTERED]&authenticity_token=unfiltered&rss_token=unfiltered&...
+  # Out: /foo?private_token=[FILTERED]&authenticity_token=[FILTERED]&rss_token=unfiltered&...
+  map $temp_request_uri_1 $temp_request_uri_2 {
+    default $temp_request_uri_1;
+    ~(?i)^(?<start>.*)(?<temp>[\?&]authenticity[\-_]token)=[^&]*(?<rest>.*)$ "$start$temp=[FILTERED]$rest";
+  }
+
+  # Remove rss_token from the request URI
+  # In:  /foo?private_token=[FILTERED]&authenticity_token=[FILTERED]&rss_token=unfiltered&...
+  # Out: /foo?private_token=[FILTERED]&authenticity_token=[FILTERED]&rss_token=[FILTERED]&...
+  map $temp_request_uri_2 $filtered_request_uri {
+    default $temp_request_uri_2;
+    ~(?i)^(?<start>.*)(?<temp>[\?&]rss[\-_]token)=[^&]*(?<rest>.*)$ "$start$temp=[FILTERED]$rest";
+  }
+
+  # A version of the referer without the query string
+  map $http_referer $filtered_http_referer {
+    default $http_referer;
+    ~^(?<temp>.*)\? $temp;
+  }
+
+  <% if @status['vts_enable'] -%>
+  # Enable vts status module.
+  vhost_traffic_status_zone;
+
+  upstream gitlab-workhorse {
+    server <%= "unix:" if node['gitlab']['gitlab-workhorse']['listen_network'] == "unix" %><%= node['gitlab']['gitlab-workhorse']['listen_addr'] %>;
+  }
+
+  <% end -%>
+  <% if @gitlab_http_config %>
+  include <%= @gitlab_http_config %>;
+  <% end %>
+
+  <% if @gitlab_smartcard_http_config %>
+  include <%= @gitlab_smartcard_http_config %>;
+  <% end %>
+
+  <% if @gitlab_pages_http_config %>
+  include <%= @gitlab_pages_http_config %>;
+  <% end %>
+
+  <% if @gitlab_mattermost_http_config %>
+  include <%= @gitlab_mattermost_http_config %>;
+  <% end %>
+
+  <% if @gitlab_registry_http_config %>
+  include <%= @gitlab_registry_http_config %>;
+  <% end %>
+
+  <% if @nginx_status_config %>
+  include <%= @nginx_status_config %>;
+  <% end %>
+
+  <%= @custom_nginx_config %>
+}

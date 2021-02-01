@@ -1,0 +1,56 @@
+# This file is managed by gitlab-ctl. Manual changes will be
+# erased! To change the contents below, edit /etc/gitlab/gitlab.rb
+# and run `sudo gitlab-ctl reconfigure`.
+
+# GitLab user. git by default
+user: <%= @user %>
+
+# Url to gitlab instance. Used for api calls. Should end with a slash.
+gitlab_url: "<%= @api_url %>"
+
+http_settings:
+  <%= @http_settings.to_json if @http_settings %>
+#  user: someone
+#  password: somepass
+#  ca_file: /etc/ssl/cert.pem
+#  ca_path: /etc/pki/tls/certs
+#  self_signed_cert: false
+
+# File used as authorized_keys for gitlab user
+auth_file: "<%= @authorized_keys %>"
+
+# Log file.
+# Default is gitlab-shell.log in the root directory.
+log_file: "<%= @log_file %>"
+
+# Log level. INFO by default
+log_level: <%= @log_level %>
+
+<% if @log_format %>
+log_format: <%= @log_format %>
+<% end %>
+
+# Audit usernames.
+# Set to true to see real usernames in the logs instead of key ids, which is easier to follow, but
+# incurs an extra API call on every gitlab-shell command.
+audit_usernames: <%= @audit_usernames %>
+
+<% if @migration %>
+migration:
+  <%= @migration.to_json %>
+<% end %>
+
+<% if @git_trace_log_file %>
+# Git trace log file.
+# If set, git commands receive GIT_TRACE* environment variables
+# See https://git-scm.com/book/es/v2/Git-Internals-Environment-Variables#Debugging for documentation
+# An absolute path starting with / – the trace output will be appended to that file.
+# It needs to exist so we can check permissions and avoid to throwing warnings to the users.
+git_trace_log_file: "<%= @git_trace_log_file %>"
+<% end %>
+
+<% if @custom_hooks_dir %>
+# Parent directory for global custom hook directories (pre-receive.d, update.d, post-receive.d)
+# Default is hooks in the gitlab-shell directory.
+custom_hooks_dir: "<%= @custom_hooks_dir %>"
+<% end %>

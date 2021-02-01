@@ -1,0 +1,20 @@
+#!/bin/sh
+
+<% if @options[:open_files_ulimit] %>
+# Attempt to change ulimit before the set -e flag, ignore failures
+ulimit -n <%= @options[:open_files_ulimit] %>
+<% end %>
+
+set -e # fail on errors
+
+# Redirect stderr -> stdout
+exec 2>&1
+
+<%= render("mount_point_check.erb", cookbook: 'gitlab') %>
+
+cd <%= @options[:working_dir] %>
+
+exec chpst -e <%= @options[:env_dir] %> -P \
+  -U <%= @options[:user] %>:<%= @options[:groupname] %> \
+  -u <%= @options[:user] %>:<%= @options[:groupname] %> \
+  <%= @options[:wrapper_path] %> <%= @options[:bin_path] %> <%= @options[:config_path] %>

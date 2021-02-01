@@ -1,0 +1,12 @@
+# frozen_string_literal: true
+
+MESSAGE = <<REV_EOF
+Please leave the merge request unassigned.
+
+Merge requests are handled according to the workflow documented in our [handbook](https://about.gitlab.com/handbook/engineering/development/enablement/distribution/merge_requests.html) and should receive a response within the limit documented in our [First-response SLO](https://about.gitlab.com/handbook/engineering/workflow/code-review/#first-response-slo).
+
+If you don't receive a response, please mention `@gitlab-org\/distribution`, or one of our [Project Maintainers](https://about.gitlab.com/handbook/engineering/projects/#omnibus-gitlab)
+REV_EOF
+
+# Print maintainers message
+message(MESSAGE)

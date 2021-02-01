@@ -1,0 +1,95 @@
+#!/bin/sh
+
+main() {
+  gitlab_rails_ref=$1
+  gitlab_shell_ref=$2
+  gitlab_workhorse_ref=$3
+  gitaly_ref=$4
+  indexer_ref=$5
+
+  if [[ "$gitlab_rails_ref" == *"-ee"* ]] ; then
+    gitlab_rails_repo=git@dev.gitlab.org:gitlab/gitlab-ee.git
+  else
+    gitlab_rails_repo=git@dev.gitlab.org:gitlab/gitlabhq.git
+  fi
+  gitlab_shell_repo=git@dev.gitlab.org:gitlab/gitlab-shell.git
+  gitlab_workhorse_repo=git@dev.gitlab.org:gitlab/gitlab-workhorse.git
+  gitaly_repo=git@dev.gitlab.org:gitlab/gitaly.git
+  indexer_repo=git@dev.gitlab.org:gitlab/gitlab-elasticsearch-indexer.git
+
+  gitlab_rails_ref_id=$(check_remote_ref gitlab_rails)
+  assert_non_empty gitlab_rails_ref_id
+  gitlab_shell_ref_id=$(check_remote_ref gitlab_shell)
+  assert_non_empty gitlab_shell_ref_id
+  gitlab_workhorse_ref_id=$(check_remote_ref gitlab_workhorse)
+  assert_non_empty gitlab_workhorse_ref_id
+  gitaly_ref_id=$(check_remote_ref gitaly)
+  assert_non_empty gitaly_ref_id
+
+  indexer_ref_id=$(check_remote_ref gitlab-elasticsearch-indexer)
+  assert_non_empty indexer_ref_id
+
+  set_source_and_version $gitlab_rails_ref VERSION
+  set_source_and_version $gitlab_shell_ref GITLAB_SHELL_VERSION
+  set_source_and_version $gitlab_workhorse_ref GITLAB_WORKHORSE_VERSION
+  set_source_and_version $gitaly_ref GITALY_SERVER_VERSION
+  set_source_and_version $indexer_ref GITLAB_ELASTICSEARCH_INDEXER_VERSION
+}
+
+# set_source_and_version foo_ref file
+# Will look for variable $foo_ref. Adds it to
+# file.
+set_source_and_version() {
+  echo "$1" > "$2"
+
+  if [ $? -ne 0 ] ; then
+    warn "Error: adding to $2 failed"
+    exit 1
+  fi
+}
+
+# check_remote_ref foo
+# Check if the $foo_ref is being set to .pre
+# return $foo_ref if version contains .pre
+# Query the Git remote at $foo_repo about $foo_ref
+# return the SHA1 OID if version exists
+check_remote_ref() {
+  if [[ "$(eval echo \$${1}_ref)" == *".pre"* ]] ; then
+    result="\$${1}_ref"
+  else
+    git_ls_remote_cmd="git ls-remote $(eval echo \$${1}_repo) $(eval echo \$${1}_ref)"
+    result=$(${git_ls_remote_cmd} | awk '{print $1}')
+  fi
+
+  if [ -z "${result}" ] ; then
+    warn "Error: ${git_ls_remote_cmd} returned no output"
+    exit 1
+  fi
+  echo $(eval echo \$${1}_ref)
+}
+
+# assert_non_empty foo
+# Abort if $foo is unset or the empty string.
+assert_non_empty() {
+  if [ -z "$(eval echo \$$1)" ]; then
+    warn "Assertion failed: \$$1 is empty"
+    exit 1
+  fi
+}
+
+warn() {
+  echo "$@" 1>&2
+}
+
+if [ "$1" = "--ee" ] ; then
+  warn "--ee flag is obsolete, use the new syntax."
+  exit 1
+fi
+
+
+if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ] || [ -z "$4" ] || [ -z "$5" ] || [ -n "$6" ]; then
+  warn "Usage: $0 GITLAB_RAILS_REF GITLAB_SHELL_REF GITLAB_WORKHORSE_REF GITALY_REF GITLAB_ELASTICSEARCH_INDEXER_REF"
+  exit 1
+fi
+
+main "$@"

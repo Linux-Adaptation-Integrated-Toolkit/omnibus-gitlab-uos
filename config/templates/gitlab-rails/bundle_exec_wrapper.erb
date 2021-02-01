@@ -1,0 +1,43 @@
+#!/bin/sh
+
+# Unset ENV variables that might interfere with
+# omnibus-gitlab ruby env (looking at you rvm, and bundler)
+for ruby_env_var in RUBYOPT \
+                    RUBYLIB \
+                    BUNDLE_BIN_PATH \
+                    BUNDLE_GEMFILE \
+                    GEM_PATH \
+                    GEM_HOME
+do
+  unset $ruby_env_var
+done
+
+error_echo()
+{
+  echo "$1" 2>& 1
+}
+
+gitlab_rails_rc='<%= install_dir %>/etc/gitlab-rails/gitlab-rails-rc'
+if ! [ -f ${gitlab_rails_rc} ] ; then
+  error_echo "$0 error: could not load ${gitlab_rails_rc}"
+  error_echo "Either you are not allowed to read the file, or it does not exist yet."
+  error_echo "You can generate it with:   sudo gitlab-ctl reconfigure"
+  exit 1
+fi
+
+. ${gitlab_rails_rc}
+
+cd <%= install_dir %>/embedded/service/gitlab-rails
+
+if [ -n "$NO_PRIVILEGE_DROP" ]; then
+  privilege_drop=''
+elif [ "$(id -n -u)" = "${gitlab_user}" ] ; then
+  # We are already running at the intended privilege; don't try to drop
+  # privileges again because only root can do that (and we are apparently not
+  # root!).
+  privilege_drop=''
+else
+  privilege_drop="-u ${gitlab_user}:${gitlab_group}"
+fi
+
+exec <%= install_dir %>/embedded/bin/chpst -e <%= install_dir %>/etc/gitlab-rails/env ${privilege_drop} -U ${gitlab_user}:${gitlab_group} <%= install_dir %>/embedded/bin/bundle exec <%= command %>

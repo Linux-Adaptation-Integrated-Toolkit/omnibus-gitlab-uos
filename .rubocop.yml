@@ -1,0 +1,73 @@
+inherit_gem:
+  gitlab-styles:
+    - rubocop-default.yml
+
+inherit_from: .rubocop_todo.yml
+
+require:
+  - ./lib/rubocop/rubocop
+  - rubocop-rspec
+
+AllCops:
+  TargetRubyVersion: 2.5
+  # Cop names are displayed in offense messages by default. Change behavior
+  # by overriding DisplayCopNames, or by giving the `--no-display-cop-names`
+  # option.
+  DisplayCopNames: true
+  # Style guide URLs are not displayed in offense messages by default. Change
+  # behavior by overriding DisplayStyleGuide, or by giving the
+  # -S/--display-style-guide option.
+  DisplayStyleGuide: false
+  # Exclude some GitLab files
+  Exclude:
+    - 'bin/*'
+    - 'gems/**/*'
+    - '.bundle/**/*'
+    - 'cache/**/*'
+    - 'node_modules/**/*'
+    - 'vendor/bundle/**/*'
+    - 'files/gitlab-cookbooks/runit/**/*'
+    - 'scripts/changelog'
+    - 'scripts/support/changelog/Dangerfile'
+    - 'scripts/security-harness'
+
+# No rails in omnibus
+Rails:
+  Enabled: false
+
+# TODO re-enable and start updating rspec tests
+RSpec:
+  Enabled: false
+
+# We use git repos in our gemfile, but only our own repos
+# TODO: Update the cop to allow us to enable it and whitelist our groups
+Cop/GemFetcher:
+  Enabled: false
+
+# We are not concerned with the security of using public in omnibus but we want to ensure
+# Any webserver script we might ship in the future is tested for it
+GitlabSecurity/PublicSend:
+  Enabled: true
+  Exclude:
+    - 'files/gitlab-cookbooks/package/**/*'
+    - 'files/gitlab-ctl-commands/**/*'
+    - 'files/gitlab-ctl-commands-ee/**/*'
+    - 'spec/**/*'
+
+# Do not introduce global variables.
+Style/GlobalVars:
+  Enabled: true
+  Exclude:
+    - 'lib/backup/**/*'
+    - 'lib/tasks/**/*'
+
+# This is only useful for our build scripts, used in CI
+# Exlude most other locations
+Cop/AvoidUsingEnv:
+  Enabled: true
+  Exclude:
+    - omnibus.rb
+    - files/**/*
+    - docker/**/*
+    - lib/gitlab/util.rb
+    - spec/gitlab/util_spec.rb

@@ -1,0 +1,108 @@
+# Gitaly configuration file
+# This file is managed by gitlab-ctl. Manual changes will be
+# erased! To change the contents below, edit /etc/gitlab/gitlab.rb
+# and run:
+# sudo gitlab-ctl reconfigure
+
+socket_path = '<%= @socket_path %>'
+
+internal_socket_dir = '<%= @internal_socket_dir %>'
+bin_dir = '/opt/gitlab/embedded/bin'
+<% if @graceful_restart_timeout %>
+graceful_restart_timeout = '<%= @graceful_restart_timeout %>'
+<% end %>
+
+<% if @listen_addr %>
+# Optional: listen on a TCP socket. This is insecure (no authentication)
+listen_addr = '<%= @listen_addr %>'
+<% end %>
+
+<% if @prometheus_listen_addr %>
+# Optional: export metrics via Prometheus
+prometheus_listen_addr = '<%= @prometheus_listen_addr %>'
+<% end %>
+
+<% if @tls_listen_addr %>
+# Optional: listen on a secure TCP socket
+tls_listen_addr = '<%= @tls_listen_addr %>'
+[tls]
+certificate_path = '<%= @certificate_path %>'
+key_path = '<%= @key_path %>'
+<% end %>
+
+<% @storage.each do |shard| %>
+[[storage]]
+<% if shard.has_key?('name') %>
+name = '<%= shard['name'] %>'
+<% end %>
+<% if shard.has_key?('path') %>
+path = '<%= shard['path'] %>'
+<% end %>
+<% end %>
+
+[logging]
+<% if @logging_level %>
+level = '<%= @logging_level %>'
+<% end %>
+<% if @logging_format %>
+format = '<%= @logging_format %>'
+<% end %>
+<% if @logging_sentry_dsn %>
+sentry_dsn = '<%= @logging_sentry_dsn %>'
+<% end %>
+<% if @logging_ruby_sentry_dsn %>
+ruby_sentry_dsn = '<%= @logging_ruby_sentry_dsn %>'
+<% end %>
+<% if @logging_sentry_environment %>
+sentry_environment = '<%= @logging_sentry_environment %>'
+<% end %>
+dir = '<%= @log_directory %>'
+
+<% if @prometheus_grpc_latency_buckets %>
+# # You can optionally configure Gitaly to record histogram latencies on GRPC method calls
+[prometheus]
+grpc_latency_buckets = <%= @prometheus_grpc_latency_buckets %>
+<% end %>
+
+[auth]
+<% if @auth_token %>
+token = '<%= @auth_token %>'
+<% end %>
+<% if @auth_transitioning %>
+transitioning = <%= @auth_transitioning %>
+<% end %>
+
+[git]
+<% if @git_catfile_cache_size %>
+catfile_cache_size = <%= @git_catfile_cache_size %>
+<% end %>
+
+
+[gitaly-ruby]
+dir = "/opt/gitlab/embedded/service/gitaly-ruby"
+<% if @ruby_max_rss %>
+max_rss = <%= @ruby_max_rss %>
+<% end %>
+<% if @ruby_graceful_restart_timeout %>
+graceful_restart_timeout = '<%= @ruby_graceful_restart_timeout %>'
+<% end %>
+<% if @ruby_restart_delay %>
+restart_delay = '<%= @ruby_restart_delay %>'
+<% end %>
+<% if @ruby_num_workers %>
+num_workers = <%= @ruby_num_workers %>
+<% end %>
+<% if @ruby_rugged_git_config_search_path %>
+rugged_git_config_search_path = "<%= @ruby_rugged_git_config_search_path %>"
+<% end %>
+
+[gitlab-shell]
+dir = "/opt/gitlab/embedded/service/gitlab-shell"
+<% if @concurrency %>
+  <% @concurrency.each do |endpoint| %>
+
+[[concurrency]]
+rpc = "<%= endpoint['rpc'] %>"
+max_per_repo = <%= endpoint['max_per_repo'] %>
+  <% end %>
+<% end %>

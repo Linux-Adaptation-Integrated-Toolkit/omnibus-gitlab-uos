@@ -1,0 +1,143 @@
+#!/bin/sh
+# GitLab pre-install script
+
+DEST_DIR=<%= install_dir %>
+NEW_MAJOR_VERSION=<%= build_version.split(".")[0] %>
+NEW_MINOR_VERSION=<%= build_version.split(".")[0,2].join(".") %>
+
+mkdir -p /var/log/gitlab/reconfigure
+
+skip_backup_file=/etc/gitlab/skip-auto-backup
+skip_reconfigure_file=/etc/gitlab/skip-auto-reconfigure
+
+# environment may contain these - clear them out
+OLD_VERSION_STRING=""
+OLD_MAJOR_VERSION=""
+OLD_MINOR_VERSION=""
+if [ -e "${DEST_DIR}/version-manifest.json" ] ; then
+  OLD_VERSION_STRING=$(grep -i "build_version" ${DEST_DIR}/version-manifest.json | awk -F ': ' '{print $2}' | tr -d '",')
+
+  # Getting the Major and Major.Minor format of existing version string
+  OLD_MAJOR_VERSION=$(echo $OLD_VERSION_STRING | awk -F "." '{print $1}')
+  OLD_MINOR_VERSION=$(echo $OLD_VERSION_STRING | awk -F "." '{print $1"."$2}')
+fi
+
+greater_version()
+{
+  test "$(printf '%s\n' "$@" | sort -V | tail -n 1)" = "$1";
+}
+
+config_check() {
+if [ -e "${DEST_DIR}/embedded/service/omnibus-ctl/check_config.rb" ] ; then
+  ${DEST_DIR}/bin/gitlab-ctl check-config --version=${NEW_MINOR_VERSION}
+  if [ $? -ne 0 ]; then
+    exit 1
+  fi
+fi
+}
+
+upgrade_check() {
+  if [ -n "${OLD_VERSION_STRING}" ] ; then
+    # Minimum version from which jumps are permitted to current version. This
+    # points to the last minor version from previous series.
+    MIN_VERSION=12.0
+
+    # Checking
+    # (i) if it is a major version jump
+    # (ii) if existing version is less than required minimum version
+    if test ${OLD_MAJOR_VERSION} -lt ${NEW_MAJOR_VERSION}; then
+      if ! greater_version $OLD_MINOR_VERSION $MIN_VERSION; then
+        notify "It seems you are upgrading from major version ${OLD_MAJOR_VERSION} to major version ${NEW_MAJOR_VERSION}."
+        notify "It is required to upgrade to the latest ${MIN_VERSION}.x version first before proceeding."
+        notify "Please follow the upgrade documentation at https://docs.gitlab.com/ee/policy/maintenance.html#upgrade-recommendations"
+        exit 1
+      fi
+    fi
+  fi
+}
+
+pg_check() {
+  PG_MIN_VERSION=9.6
+
+  # Fetch the currently running version from the database
+  # If this doesn't work, assume this isn't a database node
+  if ! running_version=$(${DEST_DIR}/bin/gitlab-psql -d template1 -c 'SHOW server_version' -qt 2>/dev/null); then
+    notify
+    notify "This node does not appear to be running a database"
+    notify "Skipping version check, if you think this is an error exit now"
+    notify
+    return
+  fi
+
+  # Check if PostgreSQL version is less than PG_MIN_VERSION and notify user.
+  # In AWK, $NF will return the last column of the version output, which
+  # is the version string. By doing $NF+0, we force awk to convert it to a
+  # float, so that we can do numerical comparison.
+  if ! $(echo ${running_version} | awk -v PG_MIN_VERSION="$PG_MIN_VERSION" '$NF+0 < PG_MIN_VERSION {exit 1}'); then
+    notify
+    notify "Your version of PostgreSQL is no longer supported. Please upgrade your PostgreSQL version."
+    notify "Check https://docs.gitlab.com/omnibus/update/#updating-gitlab-10-0-or-newer for details."
+    notify ""
+    notify "Upgrade failed. Retry the upgrade after upgrading your PostgreSQL version."
+    exit 1
+  fi
+}
+
+main() {
+  if [ -e "${skip_reconfigure_file}" ] ; then
+    # The user wants us to do nothing
+    return
+  fi
+
+  if [ -d ${DEST_DIR}/service/unicorn ] && [ ! -e "${skip_backup_file}" ] ; then
+    notify "Automatically backing up only the GitLab SQL database (excluding everything else!)"
+    if ! ${DEST_DIR}/bin/gitlab-rake gitlab:backup:create SKIP=repositories,uploads,builds,artifacts,lfs,registry,pages ; then
+      backup_failed "Database"
+    fi
+
+    BACKUP_ETC_ADDED_VERSION=12.3
+    if greater_version $OLD_MINOR_VERSION $BACKUP_ETC_ADDED_VERSION; then
+      notify "Automatically backing up /etc/gitlab"
+      if ! ${DEST_DIR}/bin/gitlab-ctl backup-etc ; then
+        notify "Configuration backup failed - check permissions for /etc/gitlab/config_backup/ [is it nfs root_squash?]"
+      fi
+    fi
+  fi
+}
+
+backup_failed() {
+  notify
+  notify "$1 backup failed! If you want to skip this backup, run the following command and try again:"
+  notify
+  notify " sudo touch ${skip_backup_file}"
+  notify
+  exit 1
+}
+
+notify() {
+  echo "gitlab preinstall: $1"
+}
+
+if [ -n "${GITLAB_DEBUG}" ] ; then
+  notify "debug: arguments: $@"
+fi
+
+case "$1" in
+  2)
+    # Looks like an RPM upgrade
+    upgrade_check
+    config_check
+    pg_check
+    main
+    ;;
+  upgrade)
+    # Looks like a DEB upgrade
+    upgrade_check
+    config_check
+    pg_check
+    main
+    ;;
+  *)
+    # This is not an upgrade, nothing to do.
+    ;;
+esac

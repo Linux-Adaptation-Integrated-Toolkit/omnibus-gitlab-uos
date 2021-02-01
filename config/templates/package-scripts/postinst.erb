@@ -1,0 +1,71 @@
+#!/bin/sh
+#
+# Perform necessary gitlab setup steps
+# after package is installed.
+#
+DEST_DIR=<%= install_dir %>
+
+notify()
+{
+  echo "gitlab: $1"
+}
+
+update_external_url()
+{
+  EXISTING_EXTERNAL_URL=$(awk '/^external_url/ { print $2 }' /etc/gitlab/gitlab.rb | tr -d "'\"")
+
+  if [ "$EXTERNAL_URL" = "http://gitlab.example.com" ]; then
+    EXTERNAL_URL=$EXISTING_EXTERNAL_URL
+  elif [ "$EXTERNAL_URL" != "$EXISTING_EXTERNAL_URL" ]; then
+    sed -i 's!^external_url .*!external_url "'$EXTERNAL_URL'"!g' /etc/gitlab/gitlab.rb
+  fi
+}
+
+create_config_template()
+{
+  # Create a minimal gitlab.rb template if /etc/gitlab/gitlab.rb does not exist.
+  if ! [ -e /etc/gitlab/gitlab.rb ] ; then
+    mkdir -p /etc/gitlab
+    cp "${DEST_DIR}/etc/gitlab.rb.template" /etc/gitlab/gitlab.rb
+    sed -i 's!GENERATED_EXTERNAL_URL!'$EXTERNAL_URL'!g' /etc/gitlab/gitlab.rb
+    chmod 600 /etc/gitlab/gitlab.rb
+  else
+    update_external_url
+  fi
+}
+
+fix_directory_permissions()
+{
+  if [ -x /usr/bin/dpkg-query ] ; then
+    # We are in the land of .deb packages. We should fix package directory owners
+    # because of the faulty 7.2.0 / 7.2.1 .deb packages.
+    /usr/bin/dpkg-query -L gitlab-ce gitlab-ee 2>/dev/null | while read f ; do
+    if [ -d "$f" ] ; then
+      # This directory may have been created when installing omnibus-gitlab
+      # 7.2.0 / 7.2.1, so it could have the wrong owner.
+      chown root:root "$f"
+    fi
+  done
+fi
+}
+
+if [ -n "${GITLAB_DEBUG}" ] ; then
+  notify "debug: arguments: $@"
+fi
+
+<%= external_url_script %>
+
+${DEST_DIR}/embedded/bin/symlink_ctl_cmds ${DEST_DIR}
+create_config_template
+fix_directory_permissions
+
+case "$1" in
+  configure)
+    # Looks like a DEB install. We don't know if it is a fresh install or an
+    # upgrade.
+    EXTERNAL_URL=${EXTERNAL_URL} ${DEST_DIR}/bin/gitlab-ctl upgrade
+    ;;
+  *)
+    # No op.
+    ;;
+esac

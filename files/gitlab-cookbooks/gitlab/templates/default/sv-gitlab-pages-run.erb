@@ -1,0 +1,94 @@
+#!/bin/bash
+set -e # fail on errors
+
+# Redirect stderr -> stdout
+exec 2>&1
+<%= render("mount_point_check.erb") %>
+
+cd <%= node['gitlab']['gitlab-pages']['dir'] %>
+
+<% external_http = [ node['gitlab']['gitlab-pages']['external_http'] ].flatten.compact  %>
+<% external_https = [ node['gitlab']['gitlab-pages']['external_https'] ].flatten.compact  %>
+<% headers = [ node['gitlab']['gitlab-pages']['headers'] ].flatten.compact  %>
+
+exec /usr/bin/env SSL_CERT_FILE=/opt/gitlab/embedded/ssl/certs/cacert.pem \
+    <% if node['gitlab']['gitlab-pages']['http_proxy'] %>
+    http_proxy="<%= node['gitlab']['gitlab-pages']['http_proxy'] %>" \
+    <% end %>
+    /opt/gitlab/embedded/bin/gitlab-pages \
+    <% if node['gitlab']['gitlab-pages']['access_control'] %>
+    -config="<%= node['gitlab']['gitlab-pages']['dir'] %>/gitlab-pages-config" \
+    <% end %>
+    <% if node['gitlab']['gitlab-pages']['listen_proxy'] %>
+    -listen-proxy="<%= node['gitlab']['gitlab-pages']['listen_proxy'] %>" \
+    <% end %>
+    <% external_http.each do |spec| %>
+    -listen-http="<%= spec %>" \
+    <% end %>
+    <% external_https.each do |spec| %>
+    -listen-https="<%= spec %>" \
+    <% end %>
+    <% unless external_https.empty? %>
+    -root-cert="<%= node['gitlab']['gitlab-pages']['cert'] %>" \
+    -root-key="<%= node['gitlab']['gitlab-pages']['cert_key'] %>" \
+    <% end %>
+    <% if node['gitlab']['gitlab-pages']['metrics_address'] %>
+    -metrics-address="<%= node['gitlab']['gitlab-pages']['metrics_address'] %>" \
+    <% end %>
+    -daemon-uid="$(id -u "<%= node['gitlab']['user']['username'] %>")" \
+    -daemon-gid="$(id -g "<%= node['gitlab']['user']['username'] %>")" \
+    -daemon-inplace-chroot=<%= node['gitlab']['gitlab-pages']['inplace_chroot'] %> \
+    \
+    -pages-domain="<%= node['gitlab']['gitlab-pages']['domain'] %>" \
+    -pages-root="<%= node['gitlab']['gitlab-pages']['pages_root'] %>" \
+    <% if node['gitlab']['gitlab-pages']['status_uri'] %>
+    -pages-status="<%= node['gitlab']['gitlab-pages']['status_uri'] %>" \
+    <% end %>
+    <% if node['gitlab']['gitlab-pages']['max_connections'] %>
+    -max-conns=<%= node['gitlab']['gitlab-pages']['max_connections'] %> \
+    <% end %>
+    <% if node['gitlab']['gitlab-pages']['log_format'] %>
+    -log-format="<%= node['gitlab']['gitlab-pages']['log_format'] %>" \
+    <% end %>
+    <% if node['gitlab']['gitlab-pages']['log_verbose'] %>
+    -log-verbose \
+    <% end %>
+    <% if node['gitlab']['gitlab-pages']['sentry_enabled'] %>
+    -sentry-dsn="<%= node['gitlab']['gitlab-pages']['sentry_dsn'] %>" \
+    <% if node['gitlab']['gitlab-pages']['sentry_environment'] %>
+    -sentry-environment="<%= node['gitlab']['gitlab-pages']['sentry_environment'] %>" \
+    <% end %>
+    <% end %>
+    \
+    -redirect-http=<%= node['gitlab']['gitlab-pages']['redirect_http'] %> \
+    -use-http2=<%= node['gitlab']['gitlab-pages']['use_http2'] %> \
+    \
+    <% if node['gitlab']['gitlab-pages']['artifacts_server'] %>
+    -artifacts-server="<%= node['gitlab']['gitlab-pages']['artifacts_server_url'] %>" \
+    <% if node['gitlab']['gitlab-pages']['artifacts_server_timeout'] %>
+    -artifacts-server-timeout=<%= node['gitlab']['gitlab-pages']['artifacts_server_timeout'] %> \
+    <% end %>
+    <% end %>
+    \
+    -gitlab-server="<%= node['gitlab']['gitlab-pages']['gitlab_server'] %>" \
+    \
+    -api-secret-key="<%= node['gitlab']['gitlab-pages']['dir'] %>/.gitlab_pages_secret" \
+    \
+    <% if node['gitlab']['gitlab-pages']['insecure_ciphers'] %>
+    -insecure-ciphers \
+    <% end %>
+    <% if node['gitlab']['gitlab-pages']['tls_min_version'] %>
+    -tls-min-version="<%= node['gitlab']['gitlab-pages']['tls_min_version'] %>" \
+    <% end %>
+    <% if node['gitlab']['gitlab-pages']['tls_max_version'] %>
+    -tls-max-version="<%= node['gitlab']['gitlab-pages']['tls_max_version'] %>" \
+    <% end %>
+    <% if node['gitlab']['gitlab-pages']['gitlab_client_http_timeout'] %>
+    -gitlab-client-http-timeout="<%= node['gitlab']['gitlab-pages']['gitlab_client_http_timeout'] %>" \
+    <% end %>
+    <% if node['gitlab']['gitlab-pages']['gitlab_client_jwt_expiry'] %>
+    -gitlab-client-jwt-expiry="<%= node['gitlab']['gitlab-pages']['gitlab_client_jwt_expiry'] %>" \
+    <% end %>
+    <% headers.each do |spec| %>
+    -header="<%= spec %>" \
+    <% end %>

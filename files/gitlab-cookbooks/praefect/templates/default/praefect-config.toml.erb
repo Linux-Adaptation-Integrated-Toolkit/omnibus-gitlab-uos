@@ -1,0 +1,83 @@
+# Gitaly configuration file
+# This file is managed by gitlab-ctl. Manual changes will be
+# erased! To change the contents below, edit /etc/gitlab/gitlab.rb
+# and run:
+# sudo gitlab-ctl reconfigure
+
+<% if @listen_addr %>
+# TCP address to listen on
+listen_addr = '<%= @listen_addr %>'
+<% end %>
+
+<% if @socket_path %>
+# # Praefect can listen on a socket when placed on the same machine as all clients
+socket_path = '<%= @socket_path %>'
+<% end %>
+
+<% if @prometheus_listen_addr %>
+# Optional: export metrics via Prometheus
+prometheus_listen_addr = '<%= @prometheus_listen_addr %>'
+<% end %>
+
+<% unless @postgres_queue_enabled.nil? %>
+postgres_queue_enabled = <%= @postgres_queue_enabled %>
+<% end %>
+
+[failover]
+<% unless @failover_enabled.nil? %>
+enabled = <%= @failover_enabled %>
+<% end %>
+<% if @failover_election_strategy %>
+election_strategy = '<%= @failover_election_strategy %>'
+<% end %>
+
+[sentry]
+<% if @sentry_dsn %>
+# Optional: emit errors to Sentry
+sentry_dsn = '<%= @sentry_dsn %>'
+<% end %>
+<% if @sentry_environment %>
+sentry_environment = '<%= @sentry_environment %>'
+<% end %>
+
+[auth]
+token = '<%= @auth_token %>'
+transitioning = <%= @auth_transitioning %>
+
+[logging]
+<% if @logging_level %>
+level = '<%= @logging_level %>'
+<% end %>
+<% if @logging_format %>
+format = '<%= @logging_format %>'
+<% end %>
+
+<% @virtual_storages.each do |name, nodes| %>
+[[virtual_storage]]
+name = '<%= name %>'
+<% nodes.each do |storage, node|  %>
+[[virtual_storage.node]]
+storage = '<%= storage %>'
+address = '<%= node['address'] %>'
+token = '<%= node['token'] %>'
+primary = <%= [true, 'true'].include?(node['primary']) %>
+<% end %>
+<% end %>
+
+[database]
+<%= "host = '#{@database_host}'" if @database_host %>
+<%= "port = #{@database_port}" if @database_port %>
+<%= "user = '#{@database_user}'" if @database_user %>
+<%= "password = '#{@database_password}'" if @database_password %>
+<%= "dbname = '#{@database_dbname}'" if @database_dbname %>
+<%= "sslmode = '#{@database_sslmode}'" if @database_sslmode %>
+<%= "sslcert = '#{@database_sslcert}'" if @database_sslcert %>
+<%= "sslkey = '#{@database_sslkey}'" if @database_sslkey %>
+<%= "sslrootcert = '#{@database_sslrootcert}'" if @database_sslrootcert %>
+
+
+<% if @prometheus_grpc_latency_buckets %>
+# # You can optionally configure Gitaly to record histogram latencies on GRPC method calls
+[prometheus]
+grpc_latency_buckets = <%= @prometheus_grpc_latency_buckets %>
+<% end %>

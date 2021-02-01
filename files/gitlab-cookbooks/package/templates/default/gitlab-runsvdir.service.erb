@@ -1,0 +1,13 @@
+[Unit]
+Description=GitLab Runit supervision process
+After=<%= @systemd_after %>
+
+[Service]
+ExecStart=/opt/gitlab/embedded/bin/runsvdir-start
+Restart=always
+<% if @tasks_max %>
+TasksMax=<%= @tasks_max %>
+<% end %>
+
+[Install]
+WantedBy=<%= @systemd_wanted_by %>
